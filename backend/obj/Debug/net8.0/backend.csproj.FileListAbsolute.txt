@@ -31,3 +31,4 @@ C:\Users\onurr\Desktop\staj-projesi\backend\obj\Debug\net8.0\refint\backend.dll
 C:\Users\onurr\Desktop\staj-projesi\backend\obj\Debug\net8.0\backend.pdb
 C:\Users\onurr\Desktop\staj-projesi\backend\obj\Debug\net8.0\backend.genruntimeconfig.cache
 C:\Users\onurr\Desktop\staj-projesi\backend\obj\Debug\net8.0\ref\backend.dll
+C:\Users\onurr\Desktop\staj-projesi\backend\obj\Debug\net8.0\backend.sourcelink.json

@@ -10,9 +10,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.WithOrigins(
+            "http://localhost:5173",          // Local React adresin
+            "https://onurrmtl-07.github.io"   // Canlıdaki GitHub Pages adresin
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader();
     });
 });
 

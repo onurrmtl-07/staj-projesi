@@ -4,8 +4,8 @@ function App() {
   const [meters, setMeters] = useState([])
 
   useEffect(() => {
-    // C# Backend API'mizden sayaç verilerini çekiyoruz
-    fetch('http://localhost:5163/api/meters')
+    // C# Backend API'mizden sayaç verilerini çekiyoruz (Ortam değişkeninden alınan esnek URL)
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/meters`)
       .then((res) => res.json())
       .then((data) => setMeters(data))
       .catch((err) => console.error('Veri çekme hatası:', err))
