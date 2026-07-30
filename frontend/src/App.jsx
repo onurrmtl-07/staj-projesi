@@ -1,45 +1,127 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react';
+import './App.css';
 
 function App() {
-  const [meters, setMeters] = useState([])
+  const [meters, setMeters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // API'den Sayaç Verilerini Çeken Fonksiyon
+  const fetchMeters = async () => {
+    setLoading(true);
+    setError(null);
+
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5163/api';
+
+    try {
+      const response = await fetch(`${baseUrl}/meters`);
+      if (!response.ok) {
+        throw new Error(`Sunucu hatası: ${response.status}`);
+      }
+      const data = await response.json();
+      setMeters(data);
+    } catch (err) {
+      setError('Sayaç verileri yüklenirken bir sorun oluştu. Lütfen bağlantınızı veya sunucuyu kontrol edin.');
+      console.error('API Hatası:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // C# Backend API'mizden sayaç verilerini çekiyoruz (Ortam değişkeninden alınan esnek URL)
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/meters`)
-      .then((res) => res.json())
-      .then((data) => setMeters(data))
-      .catch((err) => console.error('Veri çekme hatası:', err))
-  }, [])
+    fetchMeters();
+  }, []);
+
+  // Arama Filtreleme Mantığı
+  const filteredMeters = meters.filter((meter) => {
+    const search = searchTerm.toLowerCase();
+    const meterNumber = meter.meterNumber?.toString().toLowerCase() || '';
+    const meterType = meter.type?.toString().toLowerCase() || '';
+    
+    return meterNumber.includes(search) || meterType.includes(search);
+  });
 
   return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif' }}>
-      <h1>⚡ Akıllı Sayaç Takip Paneli</h1>
-      <h2>1. Hafta: Sayaç Listesi (Backend Connection)</h2>
+    <div className="container">
+      <header className="header">
+        <h1>📊 Sayaç Yönetim Sistemi</h1>
+        <p>Staj Projesi - Canlı Takip Paneli</p>
+      </header>
 
-      <table border="1" cellPadding="10" style={{ marginTop: '20px', width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f2f2f2' }}>
-            <th>ID</th>
-            <th>Seri No</th>
-            <th>Marka</th>
-            <th>Kurulum Adresi</th>
-            <th>Tarih</th>
-          </tr>
-        </thead>
-        <tbody>
-          {meters.map((meter) => (
-            <tr key={meter.id}>
-              <td>{meter.id}</td>
-              <td><strong>{meter.serialNumber}</strong></td>
-              <td>{meter.brand}</td>
-              <td>{meter.installationAddress}</td>
-              <td>{new Date(meter.installationDate).toLocaleDateString('tr-TR')}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Arama Barı ve İstatistik */}
+      <div className="top-bar">
+        <div className="search-box">
+          <input
+            type="text"
+            placeholder="🔍 Sayaç no veya tipine göre ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="stats-badge">
+          Toplam: <strong>{filteredMeters.length}</strong> / {meters.length} Sayaç
+        </div>
+      </div>
+
+      {/* ⏳ Yükleniyor Paneli */}
+      {loading && (
+        <div className="state-panel loading-panel">
+          <div className="spinner"></div>
+          <p>Sayaç verileri getiriliyor, lütfen bekleyin...</p>
+        </div>
+      )}
+
+      {/* ⚠️ Hata Paneli */}
+      {error && !loading && (
+        <div className="state-panel error-panel">
+          <h3>🚨 Bir Hata Oluştu!</h3>
+          <p>{error}</p>
+          <button className="retry-btn" onClick={fetchMeters}>
+            🔄 Tekrar Dene
+          </button>
+        </div>
+      )}
+
+      {/* 📋 Sayaç Listesi Tablosu */}
+      {!loading && !error && (
+        <div className="table-wrapper">
+          {filteredMeters.length === 0 ? (
+            <div className="empty-state">
+              <p>Aradığınız kriterlere uygun sayaç bulunamadı.</p>
+            </div>
+          ) : (
+            <table className="meter-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Sayaç Numarası</th>
+                  <th>Sayaç Tipi</th>
+                  <th>Son Okuma Tüketimi</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMeters.map((meter) => (
+                  <tr key={meter.id}>
+                    <td>#{meter.id}</td>
+                    <td className="font-bold">{meter.meterNumber}</td>
+                    <td>
+                      <span className="type-badge">{meter.type || 'Belirtilmedi'}</span>
+                    </td>
+                    <td>{meter.lastReading ?? 0} kWh</td>
+                    <td>
+                      <span className="status-badge active">Aktif</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
