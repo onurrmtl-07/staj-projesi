@@ -17,6 +17,9 @@ Bu proje, staj sürecim kapsamında geliştirmekte olduğum bir Sayaç Yönetim 
 Projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları sırasıyla uygulayabilirsiniz:
 
 ### 1️⃣ Projeyi İndirin
-```bash
-git clone [https://github.com/onurrmtl-07/staj-projesi.git](https://github.com/onurrmtl-07/staj-projesi.git)
-cd staj-projesi
+
+1. Bilgisayarınızda bir terminal ekranı açın (**Windows PowerShell**, **Komut İstemi / CMD** veya VS Code Terminali).
+2. Projenin indirilmesini istediğiniz klasöre geçin (Örn: `cd Desktop`).
+3. Komut satırına aşağıdaki `git clone` komutunu yazıp **Enter**'a basarak projeyi bilgisayarınıza indirin:
+   ```bash
+   git clone [https://github.com/onurrmtl-07/staj-projesi.git](https://github.com/onurrmtl-07/staj-projesi.git)
