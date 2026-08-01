@@ -7,30 +7,31 @@ function App() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal (Form Açılır Pencere) Durumu
+  // Modal (Açılır Pencere) Durumları
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMeterId, setEditingMeterId] = useState(null); // null ise Yeni Ekle, ID varsa Düzenle modundadır.
 
-  // Yeni Sayaç Form Verileri
-  const [newMeter, setNewMeter] = useState({
+  // Form Verileri
+  const [formData, setFormData] = useState({
     serialNumber: '',
     brand: '',
     installationAddress: ''
   });
 
-  // Sayaçları Backend'den Çeken Fonksiyon
+  // Sayaçları Backend'den Çeken Fonksiyon (GET)
   const fetchMeters = () => {
     setLoading(true);
     setError(null);
     fetch('http://localhost:5163/api/meters')
-      .then((response) => {
-        if (!response.ok) throw new Error('Sunucu yanıt vermedi');
-        return response.json();
+      .then((res) => {
+        if (!res.ok) throw new Error('Sunucu yanıt vermedi');
+        return res.json();
       })
       .then((data) => {
         setMeters(data);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setError('Sayaç listesi yüklenirken bir hata oluştu.');
         setLoading(false);
       });
@@ -43,34 +44,80 @@ function App() {
   // Form Input Değişikliği
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewMeter({ ...newMeter, [name]: value });
+    setFormData({ ...formData, [name]: value });
   };
 
-  // Yeni Sayaç Ekleme (POST İsteği)
-  const handleAddMeter = (e) => {
+  // "➕ Yeni Sayaç Ekle" Butonuna Basılınca
+  const handleOpenAddModal = () => {
+    setEditingMeterId(null);
+    setFormData({ serialNumber: '', brand: '', installationAddress: '' });
+    setIsModalOpen(true);
+  };
+
+  // "✏️ Düzenle" Butonuna Basılınca
+  const handleOpenEditModal = (meter) => {
+    setEditingMeterId(meter.id);
+    setFormData({
+      serialNumber: meter.serialNumber,
+      brand: meter.brand,
+      installationAddress: meter.installationAddress
+    });
+    setIsModalOpen(true);
+  };
+
+  // Form Gönderildiğinde (Hem POST hem PUT işlemi)
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    fetch('http://localhost:5163/api/meters', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newMeter)
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Sayaç eklenemedi.');
-        return res.json();
+    if (editingMeterId) {
+      // 🔄 GÜNCELLEME İŞLEMİ (PUT)
+      fetch(`http://localhost:5163/api/meters/${editingMeterId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
       })
-      .then((addedMeter) => {
-        // Listeyi anında güncelle
-        setMeters([...meters, addedMeter]);
-        // Formu temizle ve pop-up'ı kapat
-        setNewMeter({ serialNumber: '', brand: '', installationAddress: '' });
-        setIsModalOpen(false);
+        .then((res) => {
+          if (!res.ok) throw new Error('Güncellenemedi');
+          return res.json();
+        })
+        .then((updatedMeter) => {
+          // Listeyi yerel olarak güncelle
+          setMeters(meters.map(m => m.id === editingMeterId ? updatedMeter : m));
+          setIsModalOpen(false);
+        })
+        .catch(() => alert('Sayaç güncellenirken bir hata oluştu!'));
+    } else {
+      // ➕ YENİ EKLEME İŞLEMİ (POST)
+      fetch('http://localhost:5163/api/meters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
       })
-      .catch((err) => {
-        alert('Sayaç eklenirken hata oluştu!');
-      });
+        .then((res) => {
+          if (!res.ok) throw new Error('Eklenemedi');
+          return res.json();
+        })
+        .then((addedMeter) => {
+          setMeters([...meters, addedMeter]);
+          setIsModalOpen(false);
+        })
+        .catch(() => alert('Sayaç eklenirken bir hata oluştu!'));
+    }
+  };
+
+  // 🗑️ SILME İŞLEMİ (DELETE)
+  const handleDelete = (id) => {
+    if (window.confirm('Bu sayacı silmek istediğinize emin misiniz?')) {
+      fetch(`http://localhost:5163/api/meters/${id}`, {
+        method: 'DELETE'
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Silinemedi');
+          // Silinen sayacı listeden filtreleyip çıkar
+          setMeters(meters.filter(m => m.id !== id));
+        })
+        .catch(() => alert('Sayaç silinirken bir hata oluştu!'));
+    }
   };
 
   // Arama Filtresi
@@ -85,14 +132,14 @@ function App() {
       <header className="header">
         <div>
           <h1>⚡ Sayaç Yönetim Paneli</h1>
-          <p className="subtitle">Sistemdeki tüm sayaçları anlık takip edin ve yeni kayıt ekleyin.</p>
+          <p className="subtitle">Sistemdeki tüm sayaçları anlık takip edin, düzenleyin ve yönetin.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={handleOpenAddModal}>
           ➕ Yeni Sayaç Ekle
         </button>
       </header>
 
-      {/* Arama Çubuğu */}
+      {/* Arama Barı */}
       <div className="search-container">
         <input
           type="text"
@@ -103,7 +150,7 @@ function App() {
         />
       </div>
 
-      {/* Yükleniyor Durumu */}
+      {/* Yükleniyor Paneli */}
       {loading && (
         <div className="state-card">
           <div className="spinner"></div>
@@ -111,7 +158,7 @@ function App() {
         </div>
       )}
 
-      {/* Hata Durumu */}
+      {/* Hata Paneli */}
       {error && (
         <div className="state-card error-card">
           <p>⚠️ {error}</p>
@@ -130,6 +177,7 @@ function App() {
                 <th>Marka</th>
                 <th>Kurulum Adresi</th>
                 <th>Durum</th>
+                <th style={{ textAlign: 'center' }}>İşlemler</th>
               </tr>
             </thead>
             <tbody>
@@ -143,11 +191,27 @@ function App() {
                     <td>
                       <span className="status-badge active">Aktif</span>
                     </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div className="action-buttons">
+                        <button
+                          className="btn-action btn-edit"
+                          onClick={() => handleOpenEditModal(meter)}
+                        >
+                          ✏️ Düzenle
+                        </button>
+                        <button
+                          className="btn-action btn-delete"
+                          onClick={() => handleDelete(meter.id)}
+                        >
+                          🗑️ Sil
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="empty-state">
+                  <td colSpan="6" className="empty-state">
                     Aramanızla eşleşen sayaç bulunamadı.
                   </td>
                 </tr>
@@ -157,22 +221,22 @@ function App() {
         </div>
       )}
 
-      {/* Yeni Sayaç Ekleme Modalı (Pop-up) */}
+      {/* Pop-up Modal (Ekle & Düzenle Ortak) */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2>➕ Yeni Sayaç Kaydı</h2>
+              <h2>{editingMeterId ? '✏️ Sayacı Düzenle' : '➕ Yeni Sayaç Kaydı'}</h2>
               <button className="btn-close" onClick={() => setIsModalOpen(false)}>✖</button>
             </div>
-            <form onSubmit={handleAddMeter}>
+            <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label>Seri Numarası</label>
                 <input
                   type="text"
                   name="serialNumber"
                   placeholder="Örn: MTR-1003"
-                  value={newMeter.serialNumber}
+                  value={formData.serialNumber}
                   onChange={handleInputChange}
                   required
                 />
@@ -183,7 +247,7 @@ function App() {
                   type="text"
                   name="brand"
                   placeholder="Örn: Elektromed"
-                  value={newMeter.brand}
+                  value={formData.brand}
                   onChange={handleInputChange}
                   required
                 />
@@ -194,7 +258,7 @@ function App() {
                   type="text"
                   name="installationAddress"
                   placeholder="Örn: Muratpaşa / Antalya"
-                  value={newMeter.installationAddress}
+                  value={formData.installationAddress}
                   onChange={handleInputChange}
                   required
                 />
@@ -204,7 +268,7 @@ function App() {
                   İptal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Kaydet
+                  {editingMeterId ? 'Güncelle' : 'Kaydet'}
                 </button>
               </div>
             </form>
