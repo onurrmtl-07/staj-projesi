@@ -25,8 +25,39 @@ public class MetersController : ControllerBase
     [HttpPost]
     public IActionResult Create(Meter meter)
     {
-        meter.Id = Meters.Count + 1;
+        meter.Id = Meters.Count > 0 ? Meters.Max(m => m.Id) + 1 : 1;
         Meters.Add(meter);
         return CreatedAtAction(nameof(GetAll), new { id = meter.Id }, meter);
+    }
+
+    // Sayacı güncelleyen API ucu (PUT api/meters/1)
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, Meter updatedMeter)
+    {
+        var existingMeter = Meters.FirstOrDefault(m => m.Id == id);
+        if (existingMeter == null)
+        {
+            return NotFound(new { message = "Sayaç bulunamadı!" });
+        }
+
+        existingMeter.SerialNumber = updatedMeter.SerialNumber;
+        existingMeter.Brand = updatedMeter.Brand;
+        existingMeter.InstallationAddress = updatedMeter.InstallationAddress;
+
+        return Ok(existingMeter);
+    }
+
+    // Sayacı silen API ucu (DELETE api/meters/1)
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var meter = Meters.FirstOrDefault(m => m.Id == id);
+        if (meter == null)
+        {
+            return NotFound(new { message = "Sayaç bulunamadı!" });
+        }
+
+        Meters.Remove(meter);
+        return Ok(new { message = "Sayaç başarıyla silindi." });
     }
 }

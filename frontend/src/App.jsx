@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
+// API Adresini .env dosyasından alıyoruz
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5163';
+
 function App() {
   const [meters, setMeters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal (Açılır Pencere) Durumları
+  // Toast Bildirim Durumu
+  const [toast, setToast] = useState(null);
+
+  // Modal Durumları
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMeterId, setEditingMeterId] = useState(null); // null ise Yeni Ekle, ID varsa Düzenle modundadır.
+  const [editingMeterId, setEditingMeterId] = useState(null);
 
   // Form Verileri
   const [formData, setFormData] = useState({
@@ -18,11 +24,19 @@ function App() {
     installationAddress: ''
   });
 
+  // Toast Gösterme Fonksiyonu
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
   // Sayaçları Backend'den Çeken Fonksiyon (GET)
   const fetchMeters = () => {
     setLoading(true);
     setError(null);
-    fetch('http://localhost:5163/api/meters')
+    fetch(`${API_BASE_URL}/api/meters`)
       .then((res) => {
         if (!res.ok) throw new Error('Sunucu yanıt vermedi');
         return res.json();
@@ -41,20 +55,17 @@ function App() {
     fetchMeters();
   }, []);
 
-  // Form Input Değişikliği
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  // "➕ Yeni Sayaç Ekle" Butonuna Basılınca
   const handleOpenAddModal = () => {
     setEditingMeterId(null);
     setFormData({ serialNumber: '', brand: '', installationAddress: '' });
     setIsModalOpen(true);
   };
 
-  // "✏️ Düzenle" Butonuna Basılınca
   const handleOpenEditModal = (meter) => {
     setEditingMeterId(meter.id);
     setFormData({
@@ -65,13 +76,12 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Form Gönderildiğinde (Hem POST hem PUT işlemi)
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (editingMeterId) {
-      // 🔄 GÜNCELLEME İŞLEMİ (PUT)
-      fetch(`http://localhost:5163/api/meters/${editingMeterId}`, {
+      // 🔄 PUT
+      fetch(`${API_BASE_URL}/api/meters/${editingMeterId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -81,14 +91,14 @@ function App() {
           return res.json();
         })
         .then((updatedMeter) => {
-          // Listeyi yerel olarak güncelle
           setMeters(meters.map(m => m.id === editingMeterId ? updatedMeter : m));
           setIsModalOpen(false);
+          showToast('Sayaç bilgileri başarıyla güncellendi! ✏️', 'success');
         })
-        .catch(() => alert('Sayaç güncellenirken bir hata oluştu!'));
+        .catch(() => showToast('Sayaç güncellenirken hata oluştu!', 'error'));
     } else {
-      // ➕ YENİ EKLEME İŞLEMİ (POST)
-      fetch('http://localhost:5163/api/meters', {
+      // ➕ POST
+      fetch(`${API_BASE_URL}/api/meters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -100,35 +110,44 @@ function App() {
         .then((addedMeter) => {
           setMeters([...meters, addedMeter]);
           setIsModalOpen(false);
+          showToast('Yeni sayaç başarıyla eklendi! 🎉', 'success');
         })
-        .catch(() => alert('Sayaç eklenirken bir hata oluştu!'));
+        .catch(() => showToast('Sayaç eklenirken hata oluştu!', 'error'));
     }
   };
 
-  // 🗑️ SILME İŞLEMİ (DELETE)
   const handleDelete = (id) => {
     if (window.confirm('Bu sayacı silmek istediğinize emin misiniz?')) {
-      fetch(`http://localhost:5163/api/meters/${id}`, {
+      fetch(`${API_BASE_URL}/api/meters/${id}`, {
         method: 'DELETE'
       })
         .then((res) => {
           if (!res.ok) throw new Error('Silinemedi');
-          // Silinen sayacı listeden filtreleyip çıkar
           setMeters(meters.filter(m => m.id !== id));
+          showToast('Sayaç başarıyla silindi! 🗑️', 'error');
         })
-        .catch(() => alert('Sayaç silinirken bir hata oluştu!'));
+        .catch(() => showToast('Sayaç silinirken hata oluştu!', 'error'));
     }
   };
 
-  // Arama Filtresi
   const filteredMeters = meters.filter((meter) =>
     meter.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     meter.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
     meter.installationAddress.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalMeters = meters.length;
+  const lastMeter = meters.length > 0 ? meters[meters.length - 1].serialNumber : '-';
+
   return (
     <div className="container">
+      {/* 🔔 Toast Bildirim Balonu */}
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
+
       <header className="header">
         <div>
           <h1>⚡ Sayaç Yönetim Paneli</h1>
@@ -138,6 +157,33 @@ function App() {
           ➕ Yeni Sayaç Ekle
         </button>
       </header>
+
+      {/* 📊 İstatistik Kartları */}
+      {!loading && !error && (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-icon">📊</span>
+            <div>
+              <div className="stat-value">{totalMeters}</div>
+              <div className="stat-label">Toplam Sayaç</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <span className="stat-icon">🟢</span>
+            <div>
+              <div className="stat-value">{totalMeters}</div>
+              <div className="stat-label">Aktif Sayaç</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <span className="stat-icon">🆕</span>
+            <div>
+              <div className="stat-value">{lastMeter}</div>
+              <div className="stat-label">Son Eklenen Sayaç</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Arama Barı */}
       <div className="search-container">
@@ -150,7 +196,6 @@ function App() {
         />
       </div>
 
-      {/* Yükleniyor Paneli */}
       {loading && (
         <div className="state-card">
           <div className="spinner"></div>
@@ -158,7 +203,6 @@ function App() {
         </div>
       )}
 
-      {/* Hata Paneli */}
       {error && (
         <div className="state-card error-card">
           <p>⚠️ {error}</p>
@@ -166,7 +210,6 @@ function App() {
         </div>
       )}
 
-      {/* Sayaç Listesi Tablosu */}
       {!loading && !error && (
         <div className="table-card">
           <table className="meter-table">
@@ -221,7 +264,6 @@ function App() {
         </div>
       )}
 
-      {/* Pop-up Modal (Ekle & Düzenle Ortak) */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal">
