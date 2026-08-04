@@ -25,8 +25,28 @@ public class ReadingsController : ControllerBase
     [HttpPost]
     public IActionResult Create(Reading reading)
     {
-        reading.Id = Readings.Count + 1;
+        // 🛑 Negatif Değer Doğrulaması (Validation)
+        if (reading.ConsumptionValue < 0)
+        {
+            return BadRequest(new { message = "Tüketim değeri 0'dan küçük (negatif) olamaz." });
+        }
+
+        reading.Id = Readings.Count > 0 ? Readings.Max(r => r.Id) + 1 : 1;
         Readings.Add(reading);
         return CreatedAtAction(nameof(GetAll), new { id = reading.Id }, reading);
+    }
+
+    // 🗑️ Okuma verisi silen API ucu (DELETE api/readings/{id})
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var reading = Readings.FirstOrDefault(r => r.Id == id);
+        if (reading == null)
+        {
+            return NotFound(new { message = "Silinmek istenen okuma kaydı bulunamadı." });
+        }
+
+        Readings.Remove(reading);
+        return NoContent();
     }
 }
