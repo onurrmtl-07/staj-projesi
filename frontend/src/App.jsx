@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-// API Adresini .env dosyasından alıyoruz
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5163';
+// API Adresini .env dosyasından alıyoruz (Varsayılan olarak canlı Render backend adresi ayarlandı)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://staj-projesi-backend.onrender.com';
 
 function App() {
   const [meters, setMeters] = useState([]);
