@@ -1,0 +1,19 @@
+# .NET / Backend
+bin/
+obj/
+backend/bin/
+backend/obj/
+backend.Tests/bin/
+backend.Tests/obj/
+.vs/
+*.user
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# IDE & OS
+.vscode/
+.DS_Store
+Thumbs.db
