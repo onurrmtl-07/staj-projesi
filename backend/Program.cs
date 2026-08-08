@@ -21,10 +21,13 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-
-    app.UseSwagger();
-    app.UseSwaggerUI();
-
+// Swagger konfigürasyonu (Ana dizinde otomatik açılması için)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Staj Projesi API v1");
+    c.RoutePrefix = string.Empty; // Ana adresi (/) doğrudan Swagger ekranı yapar
+});
 
 app.UseCors("AllowAll");
 app.UseAuthorization();
