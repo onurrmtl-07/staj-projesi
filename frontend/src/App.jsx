@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-// API Adresini .env dosyasından alıyoruz (Varsayılan olarak canlı Render backend adresi ayarlandı)
+// API Adresini .env dosyasından alıyoruz
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://staj-projesi-backend.onrender.com';
 
 function App() {
@@ -29,26 +29,23 @@ function App() {
     setToast({ message, type });
     setTimeout(() => {
       setToast(null);
-    }, 3000);
+    }, 4000);
   };
 
   // Sayaçları Backend'den Çeken Fonksiyon (GET)
-  const fetchMeters = () => {
+  const fetchMeters = async () => {
     setLoading(true);
     setError(null);
-    fetch(`${API_BASE_URL}/api/meters`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Sunucu yanıt vermedi');
-        return res.json();
-      })
-      .then((data) => {
-        setMeters(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Sayaç listesi yüklenirken bir hata oluştu.');
-        setLoading(false);
-      });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/meters`);
+      if (!res.ok) throw new Error('Sunucuya ulaşılamadı veya bir hata oluştu.');
+      const data = await res.json();
+      setMeters(data);
+    } catch (err) {
+      setError('Sayaç listesi yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -76,64 +73,82 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  // Backend Validation ve Hata Yanıtlarını İşleyen Yardımcı Fonksiyon
+  const parseErrorMessage = async (res) => {
+    try {
+      const errorData = await res.json();
+      if (errorData.errors) {
+        // ASP.NET Core ModelState doğrulama hatalarını birleştir
+        return Object.values(errorData.errors).flat().join(' | ');
+      }
+      if (errorData.message) {
+        return errorData.message;
+      }
+    } catch {
+      // JSON parse edilemezse varsayılan mesaj
+    }
+    return 'İşlem gerçekleştirilemedi.';
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (editingMeterId) {
-      // 🔄 PUT
-      fetch(`${API_BASE_URL}/api/meters/${editingMeterId}`, {
-        method: 'PUT',
+    const isEdit = Boolean(editingMeterId);
+    const url = isEdit ? `${API_BASE_URL}/api/meters/${editingMeterId}` : `${API_BASE_URL}/api/meters`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Güncellenemedi');
-          return res.json();
-        })
-        .then((updatedMeter) => {
-          setMeters(meters.map(m => m.id === editingMeterId ? updatedMeter : m));
-          setIsModalOpen(false);
-          showToast('Sayaç bilgileri başarıyla güncellendi! ✏️', 'success');
-        })
-        .catch(() => showToast('Sayaç güncellenirken hata oluştu!', 'error'));
-    } else {
-      // ➕ POST
-      fetch(`${API_BASE_URL}/api/meters`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Eklenemedi');
-          return res.json();
-        })
-        .then((addedMeter) => {
-          setMeters([...meters, addedMeter]);
-          setIsModalOpen(false);
-          showToast('Yeni sayaç başarıyla eklendi! 🎉', 'success');
-        })
-        .catch(() => showToast('Sayaç eklenirken hata oluştu!', 'error'));
+      });
+
+      if (!res.ok) {
+        const errorMsg = await parseErrorMessage(res);
+        throw new Error(errorMsg);
+      }
+
+      const resultData = await res.json();
+
+      if (isEdit) {
+        setMeters(meters.map(m => m.id === editingMeterId ? resultData : m));
+        showToast('Sayaç bilgileri başarıyla güncellendi! ✏️', 'success');
+      } else {
+        setMeters([...meters, resultData]);
+        showToast('Yeni sayaç başarıyla eklendi! 🎉', 'success');
+      }
+
+      setIsModalOpen(false);
+    } catch (err) {
+      showToast(`⚠️ Hata: ${err.message}`, 'error');
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Bu sayacı silmek istediğinize emin misiniz?')) {
-      fetch(`${API_BASE_URL}/api/meters/${id}`, {
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bu sayacı silmek istediğinize emin misiniz?')) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${id}`, {
         method: 'DELETE'
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Silinemedi');
-          setMeters(meters.filter(m => m.id !== id));
-          showToast('Sayaç başarıyla silindi! 🗑️', 'error');
-        })
-        .catch(() => showToast('Sayaç silinirken hata oluştu!', 'error'));
+      });
+
+      if (!res.ok) {
+        const errorMsg = await parseErrorMessage(res);
+        throw new Error(errorMsg);
+      }
+
+      setMeters(meters.filter(m => m.id !== id));
+      showToast('Sayaç başarıyla silindi! 🗑️', 'success');
+    } catch (err) {
+      showToast(`⚠️ ${err.message}`, 'error');
     }
   };
 
   const filteredMeters = meters.filter((meter) =>
-    meter.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    meter.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    meter.installationAddress.toLowerCase().includes(searchTerm.toLowerCase())
+    meter.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    meter.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    meter.installationAddress?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalMeters = meters.length;
@@ -280,7 +295,6 @@ function App() {
                   placeholder="Örn: MTR-1003"
                   value={formData.serialNumber}
                   onChange={handleInputChange}
-                  required
                 />
               </div>
               <div className="form-group">
@@ -291,7 +305,6 @@ function App() {
                   placeholder="Örn: Elektromed"
                   value={formData.brand}
                   onChange={handleInputChange}
-                  required
                 />
               </div>
               <div className="form-group">
@@ -302,7 +315,6 @@ function App() {
                   placeholder="Örn: Muratpaşa / Antalya"
                   value={formData.installationAddress}
                   onChange={handleInputChange}
-                  required
                 />
               </div>
               <div className="modal-actions">
@@ -312,7 +324,7 @@ function App() {
                 <button type="submit" className="btn btn-primary">
                   {editingMeterId ? 'Güncelle' : 'Kaydet'}
                 </button>
-              </div>
+                </div>
             </form>
           </div>
         </div>

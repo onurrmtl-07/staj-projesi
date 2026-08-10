@@ -21,32 +21,43 @@ public class ReadingsController : ControllerBase
         return Ok(Readings);
     }
 
+    // Id'ye göre okuma verisi getiren API ucu (GET api/readings/1)
+    [HttpGet("{id}")]
+    public IActionResult GetById(int id)
+    {
+        var reading = Readings.FirstOrDefault(r => r.Id == id);
+        if (reading == null)
+        {
+            return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
+        }
+        return Ok(reading);
+    }
+
     // Yeni okuma verisi ekleyen API ucu (POST api/readings)
     [HttpPost]
-    public IActionResult Create(Reading reading)
+    public IActionResult Create([FromBody] Reading reading)
     {
-        // 🛑 Negatif Değer Doğrulaması (Validation)
-        if (reading.ConsumptionValue < 0)
+        if (!ModelState.IsValid)
         {
-            return BadRequest(new { message = "Tüketim değeri 0'dan küçük (negatif) olamaz." });
+            return BadRequest(ModelState);
         }
 
         reading.Id = Readings.Count > 0 ? Readings.Max(r => r.Id) + 1 : 1;
         Readings.Add(reading);
-        return CreatedAtAction(nameof(GetAll), new { id = reading.Id }, reading);
+        return CreatedAtAction(nameof(GetById), new { id = reading.Id }, reading);
     }
 
-    // 🗑️ Okuma verisi silen API ucu (DELETE api/readings/{id})
+    // Okuma verisi silen API ucu (DELETE api/readings/1)
     [HttpDelete("{id}")]
     public IActionResult Delete(int id)
     {
         var reading = Readings.FirstOrDefault(r => r.Id == id);
         if (reading == null)
         {
-            return NotFound(new { message = "Silinmek istenen okuma kaydı bulunamadı." });
+            return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
         }
 
         Readings.Remove(reading);
-        return NoContent();
+        return Ok(new { message = "Okuma kaydı başarıyla silindi." });
     }
 }
