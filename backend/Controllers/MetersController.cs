@@ -21,23 +21,45 @@ public class MetersController : ControllerBase
         return Ok(Meters);
     }
 
+    // Id'ye göre sayaç getiren API ucu (GET api/meters/1)
+    [HttpGet("{id}")]
+    public IActionResult GetById(int id)
+    {
+        var meter = Meters.FirstOrDefault(m => m.Id == id);
+        if (meter == null)
+        {
+            return NotFound(new { message = $"{id} ID'li sayaç bulunamadı." });
+        }
+        return Ok(meter);
+    }
+
     // Yeni sayaç ekleyen API ucu (POST api/meters)
     [HttpPost]
-    public IActionResult Create(Meter meter)
+    public IActionResult Create([FromBody] Meter meter)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         meter.Id = Meters.Count > 0 ? Meters.Max(m => m.Id) + 1 : 1;
         Meters.Add(meter);
-        return CreatedAtAction(nameof(GetAll), new { id = meter.Id }, meter);
+        return CreatedAtAction(nameof(GetById), new { id = meter.Id }, meter);
     }
 
     // Sayacı güncelleyen API ucu (PUT api/meters/1)
     [HttpPut("{id}")]
-    public IActionResult Update(int id, Meter updatedMeter)
+    public IActionResult Update(int id, [FromBody] Meter updatedMeter)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var existingMeter = Meters.FirstOrDefault(m => m.Id == id);
         if (existingMeter == null)
         {
-            return NotFound(new { message = "Sayaç bulunamadı!" });
+            return NotFound(new { message = $"{id} ID'li sayaç bulunamadı." });
         }
 
         existingMeter.SerialNumber = updatedMeter.SerialNumber;
@@ -54,7 +76,7 @@ public class MetersController : ControllerBase
         var meter = Meters.FirstOrDefault(m => m.Id == id);
         if (meter == null)
         {
-            return NotFound(new { message = "Sayaç bulunamadı!" });
+            return NotFound(new { message = $"{id} ID'li sayaç bulunamadı." });
         }
 
         Meters.Remove(meter);
