@@ -1,34 +1,61 @@
-namespace backend.Tests;
-
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using backend.Models;
 using Xunit;
 
-public class ReadingTests
-{
-    [Fact]
-    public void Reading_Properties_CanBeSetSuccessfully()
-    {
-        // Arrange & Act
-        var reading = new Reading
-        {
-            Id = 1,
-            MeterId = 1,
-            ConsumptionValue = 150.5,
-            ReadingDate = System.DateTime.Now
-        };
+namespace backend.Tests;
 
-        // Assert
-        Assert.Equal(150.5, reading.ConsumptionValue);
-        Assert.Equal(1, reading.MeterId);
+public class UnitTest1
+{
+    private IList<ValidationResult> ValidateModel(object model)
+    {
+        var validationResults = new List<ValidationResult>();
+        var ctx = new ValidationContext(model, null, null);
+        Validator.TryValidateObject(model, ctx, validationResults, true);
+        return validationResults;
     }
 
     [Fact]
-    public void Reading_NegativeValue_Check()
+    public void ValidMeter_ShouldPassValidation()
     {
-        // Arrange
-        double negativeValue = -50.0;
+        var meter = new Meter
+        {
+            SerialNumber = "12345",
+            Brand = "Baylan",
+            InstallationAddress = "Test Mahalle No:1"
+        };
 
-        // Assert
-        Assert.True(negativeValue < 0, "Okuma değeri negatif olamaz doğrulaması.");
+        var results = ValidateModel(meter);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void InvalidMeter_EmptySerialNumber_ShouldFailValidation()
+    {
+        var meter = new Meter
+        {
+            SerialNumber = "",
+            Brand = "Baylan",
+            InstallationAddress = "Test Mahalle No:1"
+        };
+
+        var results = ValidateModel(meter);
+
+        Assert.NotEmpty(results);
+    }
+
+    [Fact]
+    public void InvalidReading_NegativeConsumption_ShouldFailValidation()
+    {
+        var reading = new Reading
+        {
+            MeterId = 1,
+            ConsumptionValue = -10
+        };
+
+        var results = ValidateModel(reading);
+
+        Assert.NotEmpty(results);
     }
 }
