@@ -183,9 +183,10 @@ function App() {
     }
   };
 
-  // Tüketim Değerini Doğru Çözümleyen Yardımcı Fonksiyon
+  // Tüketim Değerini Doğru Çözümleyen Yardımcı Fonksiyon (Reading.cs model adlarıyla uyumlu)
   const getDisplayValue = (r) => {
     const candidates = [
+      r.consumptionValue, r.ConsumptionValue, // 👈 C# Reading.cs modelindeki asıl alan adı
       r.consumption, r.Consumption,
       r.readingValue, r.ReadingValue,
       r.value, r.Value,
@@ -218,18 +219,14 @@ function App() {
       return;
     }
 
-    // Backend'deki tüm olası C# DTO alan isimleri (CamelCase & PascalCase)
+    // Backend'deki C# Reading model alan isimleri (ConsumptionValue ve MeterId)
     const payload = {
       meterId: selectedMeterForReadings.id,
       MeterId: selectedMeterForReadings.id,
+      consumptionValue: consumptionVal,     // 👈 C# Reading.cs için gerekli alan
+      ConsumptionValue: consumptionVal,     // 👈 C# Reading.cs için gerekli alan
       consumption: consumptionVal,
-      Consumption: consumptionVal,
       value: consumptionVal,
-      Value: consumptionVal,
-      readingValue: consumptionVal,
-      ReadingValue: consumptionVal,
-      kwh: consumptionVal,
-      Kwh: consumptionVal,
       readingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString(),
       ReadingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString()
     };
