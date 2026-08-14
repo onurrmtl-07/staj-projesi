@@ -183,24 +183,55 @@ function App() {
     }
   };
 
+  // Tüketim Değerini Doğru Çözümleyen Yardımcı Fonksiyon
+  const getDisplayValue = (r) => {
+    const candidates = [
+      r.consumption, r.Consumption,
+      r.readingValue, r.ReadingValue,
+      r.value, r.Value,
+      r.kwh, r.Kwh
+    ];
+    // 1. Sıra: 0'dan farklı ilk geçerli sayıyı bul
+    const nonZero = candidates.find((v) => v !== undefined && v !== null && Number(v) !== 0 && !isNaN(Number(v)));
+    if (nonZero !== undefined) return nonZero;
+
+    // 2. Sıra: Bulunamazsa 0 olan ilk değeri bul
+    const anyVal = candidates.find((v) => v !== undefined && v !== null && !isNaN(Number(v)));
+    return anyVal ?? 0;
+  };
+
   // Yeni Okuma (Tüketim) Kaydı Ekleme
   const handleAddReading = async (e) => {
     e.preventDefault();
 
-    if (!newReading.consumption || isNaN(newReading.consumption)) {
+    if (!newReading.consumption) {
       showToast('Lütfen geçerli bir tüketim miktarı girin.', 'error');
       return;
     }
 
-    const consumptionVal = parseFloat(newReading.consumption);
+    // Virgülü noktaya çevirip sayısal değer elde ediyoruz
+    const rawVal = String(newReading.consumption).replace(',', '.');
+    const consumptionVal = parseFloat(rawVal);
 
-    // Backend'deki olası tüm alan isimlerine uyum sağlamak için:
+    if (isNaN(consumptionVal)) {
+      showToast('Lütfen geçerli bir sayı girin.', 'error');
+      return;
+    }
+
+    // Backend'deki tüm olası C# DTO alan isimleri (CamelCase & PascalCase)
     const payload = {
       meterId: selectedMeterForReadings.id,
+      MeterId: selectedMeterForReadings.id,
       consumption: consumptionVal,
+      Consumption: consumptionVal,
       value: consumptionVal,
+      Value: consumptionVal,
       readingValue: consumptionVal,
-      readingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString()
+      ReadingValue: consumptionVal,
+      kwh: consumptionVal,
+      Kwh: consumptionVal,
+      readingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString(),
+      ReadingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString()
     };
 
     try {
@@ -450,9 +481,8 @@ function App() {
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1', minWidth: '140px' }}>
                   <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Tüketim (kWh)"
+                    type="text"
+                    placeholder="Tüketim (kWh) Örn: 15.6"
                     value={newReading.consumption}
                     onChange={(e) => setNewReading({ ...newReading, consumption: e.target.value })}
                     className="search-input"
@@ -494,7 +524,7 @@ function App() {
                       <tr key={r.id}>
                         <td>{r.readingDate ? new Date(r.readingDate).toLocaleDateString('tr-TR') : '-'}</td>
                         <td className="font-bold" style={{ color: '#10b981' }}>
-                          {r.consumption ?? r.value ?? r.readingValue ?? r.kwh ?? r.Consumption ?? r.Value ?? 0} kWh
+                          {getDisplayValue(r)} kWh
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
