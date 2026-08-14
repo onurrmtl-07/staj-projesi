@@ -192,9 +192,14 @@ function App() {
       return;
     }
 
+    const consumptionVal = parseFloat(newReading.consumption);
+
+    // Backend'deki olası tüm alan isimlerine uyum sağlamak için:
     const payload = {
       meterId: selectedMeterForReadings.id,
-      consumption: parseFloat(newReading.consumption),
+      consumption: consumptionVal,
+      value: consumptionVal,
+      readingValue: consumptionVal,
       readingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString()
     };
 
@@ -489,7 +494,7 @@ function App() {
                       <tr key={r.id}>
                         <td>{r.readingDate ? new Date(r.readingDate).toLocaleDateString('tr-TR') : '-'}</td>
                         <td className="font-bold" style={{ color: '#10b981' }}>
-                          {r.consumption} kWh
+                          {r.consumption ?? r.value ?? r.readingValue ?? r.kwh ?? r.Consumption ?? r.Value ?? 0} kWh
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
