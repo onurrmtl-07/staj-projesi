@@ -7,33 +7,37 @@ namespace backend.Controllers;
 [Route("api/[controller]")]
 public class ReadingsController : ControllerBase
 {
-    // Geçici (In-Memory) Okuma Listesi
     private static readonly List<Reading> Readings = new()
     {
-        new Reading { Id = 1, MeterId = 1, ConsumptionValue = 120.5 },
-        new Reading { Id = 2, MeterId = 1, ConsumptionValue = 145.0 }
+        new Reading { Id = 1, MeterId = 1, ConsumptionValue = 120.5, ReadingDate = DateTime.UtcNow.AddDays(-1) },
+        new Reading { Id = 2, MeterId = 1, ConsumptionValue = 145.0, ReadingDate = DateTime.UtcNow }
     };
 
-    // Tüm okumaları getiren API ucu (GET api/readings)
+    private static readonly object LockObject = new();
+
     [HttpGet]
     public IActionResult GetAll()
     {
-        return Ok(Readings);
+        lock (LockObject)
+        {
+            return Ok(Readings.ToList());
+        }
     }
 
-    // Id'ye göre okuma verisi getiren API ucu (GET api/readings/1)
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {
-        var reading = Readings.FirstOrDefault(r => r.Id == id);
-        if (reading == null)
+        lock (LockObject)
         {
-            return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
+            var reading = Readings.FirstOrDefault(r => r.Id == id);
+            if (reading == null)
+            {
+                return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
+            }
+            return Ok(reading);
         }
-        return Ok(reading);
     }
 
-    // Yeni okuma verisi ekleyen API ucu (POST api/readings)
     [HttpPost]
     public IActionResult Create([FromBody] Reading reading)
     {
@@ -42,22 +46,52 @@ public class ReadingsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        reading.Id = Readings.Count > 0 ? Readings.Max(r => r.Id) + 1 : 1;
-        Readings.Add(reading);
-        return CreatedAtAction(nameof(GetById), new { id = reading.Id }, reading);
+        lock (LockObject)
+        {
+            reading.Id = Readings.Count > 0 ? Readings.Max(r => r.Id) + 1 : 1;
+            reading.ReadingDate = DateTime.UtcNow;
+            Readings.Add(reading);
+            return CreatedAtAction(nameof(GetById), new { id = reading.Id }, reading);
+        }
     }
 
-    // Okuma verisi silen API ucu (DELETE api/readings/1)
+    // Var olan kaydı güncelleme (PUT api/readings/1)
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, [FromBody] Reading updatedReading)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        lock (LockObject)
+        {
+            var existing = Readings.FirstOrDefault(r => r.Id == id);
+            if (existing == null)
+            {
+                return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
+            }
+
+            existing.MeterId = updatedReading.MeterId;
+            existing.ConsumptionValue = updatedReading.ConsumptionValue;
+
+            return Ok(existing);
+        }
+    }
+
     [HttpDelete("{id}")]
     public IActionResult Delete(int id)
     {
-        var reading = Readings.FirstOrDefault(r => r.Id == id);
-        if (reading == null)
+        lock (LockObject)
         {
-            return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
-        }
+            var reading = Readings.FirstOrDefault(r => r.Id == id);
+            if (reading == null)
+            {
+                return NotFound(new { message = $"{id} ID'li okuma kaydı bulunamadı." });
+            }
 
-        Readings.Remove(reading);
-        return Ok(new { message = "Okuma kaydı başarıyla silindi." });
+            Readings.Remove(reading);
+            return Ok(new { message = "Okuma kaydı başarıyla silindi." });
+        }
     }
 }
