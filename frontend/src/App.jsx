@@ -13,11 +13,21 @@ function App() {
   // Toast Bildirim Durumu
   const [toast, setToast] = useState(null);
 
-  // Modal Durumları
+  // Sayaç Modal Durumları
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMeterId, setEditingMeterId] = useState(null);
 
-  // Form Verileri
+  // Okuma (Reading) Modal Durumları
+  const [isReadingModalOpen, setIsReadingModalOpen] = useState(false);
+  const [selectedMeterForReadings, setSelectedMeterForReadings] = useState(null);
+  const [readings, setReadings] = useState([]);
+  const [readingsLoading, setReadingsLoading] = useState(false);
+  const [newReading, setNewReading] = useState({
+    consumption: '',
+    readingDate: new Date().toISOString().slice(0, 10)
+  });
+
+  // Form Verileri (Sayaç Ekle/Düzenle)
   const [formData, setFormData] = useState({
     serialNumber: '',
     brand: '',
@@ -73,12 +83,38 @@ function App() {
     setIsModalOpen(true);
   };
 
+  // Okuma (Reading) Modalını Açma ve Kayıtları Çekme
+  const handleOpenReadingModal = async (meter) => {
+    setSelectedMeterForReadings(meter);
+    setIsReadingModalOpen(true);
+    setReadingsLoading(true);
+    setNewReading({ consumption: '', readingDate: new Date().toISOString().slice(0, 10) });
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/readings`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const filtered = data.filter((r) => r.meterId === meter.id || r.meter?.id === meter.id);
+          setReadings(filtered);
+        } else {
+          setReadings([]);
+        }
+      } else {
+        setReadings([]);
+      }
+    } catch (err) {
+      showToast('Okuma kayıtları çekilirken bir hata oluştu.', 'error');
+    } finally {
+      setReadingsLoading(false);
+    }
+  };
+
   // Backend Validation ve Hata Yanıtlarını İşleyen Yardımcı Fonksiyon
   const parseErrorMessage = async (res) => {
     try {
       const errorData = await res.json();
       if (errorData.errors) {
-        // ASP.NET Core ModelState doğrulama hatalarını birleştir
         return Object.values(errorData.errors).flat().join(' | ');
       }
       if (errorData.message) {
@@ -90,6 +126,7 @@ function App() {
     return 'İşlem gerçekleştirilemedi.';
   };
 
+  // Sayaç Kaydetme / Güncelleme
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -112,7 +149,7 @@ function App() {
       const resultData = await res.json();
 
       if (isEdit) {
-        setMeters(meters.map(m => m.id === editingMeterId ? resultData : m));
+        setMeters(meters.map((m) => (m.id === editingMeterId ? resultData : m)));
         showToast('Sayaç bilgileri başarıyla güncellendi! ✏️', 'success');
       } else {
         setMeters([...meters, resultData]);
@@ -125,6 +162,7 @@ function App() {
     }
   };
 
+  // Sayaç Silme
   const handleDelete = async (id) => {
     if (!window.confirm('Bu sayacı silmek istediğinize emin misiniz?')) return;
 
@@ -138,17 +176,75 @@ function App() {
         throw new Error(errorMsg);
       }
 
-      setMeters(meters.filter(m => m.id !== id));
+      setMeters(meters.filter((m) => m.id !== id));
       showToast('Sayaç başarıyla silindi! 🗑️', 'success');
     } catch (err) {
       showToast(`⚠️ ${err.message}`, 'error');
     }
   };
 
-  const filteredMeters = meters.filter((meter) =>
-    meter.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    meter.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    meter.installationAddress?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Yeni Okuma (Tüketim) Kaydı Ekleme
+  const handleAddReading = async (e) => {
+    e.preventDefault();
+
+    if (!newReading.consumption || isNaN(newReading.consumption)) {
+      showToast('Lütfen geçerli bir tüketim miktarı girin.', 'error');
+      return;
+    }
+
+    const payload = {
+      meterId: selectedMeterForReadings.id,
+      consumption: parseFloat(newReading.consumption),
+      readingDate: newReading.readingDate ? new Date(newReading.readingDate).toISOString() : new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/readings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorMsg = await parseErrorMessage(res);
+        throw new Error(errorMsg);
+      }
+
+      const createdReading = await res.json();
+      setReadings([...readings, createdReading]);
+      setNewReading({ consumption: '', readingDate: new Date().toISOString().slice(0, 10) });
+      showToast('Yeni okuma kaydı başarıyla eklendi! ⚡', 'success');
+    } catch (err) {
+      showToast(`⚠️ Hata: ${err.message}`, 'error');
+    }
+  };
+
+  // Okuma Kaydı Silme
+  const handleDeleteReading = async (readingId) => {
+    if (!window.confirm('Bu okuma kaydını silmek istediğinize emin misiniz?')) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/readings/${readingId}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const errorMsg = await parseErrorMessage(res);
+        throw new Error(errorMsg);
+      }
+
+      setReadings(readings.filter((r) => r.id !== readingId));
+      showToast('Okuma kaydı silindi! 🗑️', 'success');
+    } catch (err) {
+      showToast(`⚠️ Hata: ${err.message}`, 'error');
+    }
+  };
+
+  const filteredMeters = meters.filter(
+    (meter) =>
+      meter.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meter.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meter.installationAddress?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalMeters = meters.length;
@@ -157,11 +253,7 @@ function App() {
   return (
     <div className="container">
       {/* 🔔 Toast Bildirim Balonu */}
-      {toast && (
-        <div className={`toast toast-${toast.type}`}>
-          {toast.message}
-        </div>
-      )}
+      {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
 
       <header className="header">
         <div>
@@ -221,7 +313,9 @@ function App() {
       {error && (
         <div className="state-card error-card">
           <p>⚠️ {error}</p>
-          <button className="btn btn-retry" onClick={fetchMeters}>Tekrar Dene</button>
+          <button className="btn btn-retry" onClick={fetchMeters}>
+            Tekrar Dene
+          </button>
         </div>
       )}
 
@@ -253,14 +347,15 @@ function App() {
                       <div className="action-buttons">
                         <button
                           className="btn-action btn-edit"
-                          onClick={() => handleOpenEditModal(meter)}
+                          style={{ backgroundColor: '#2563eb', color: '#fff' }}
+                          onClick={() => handleOpenReadingModal(meter)}
                         >
+                          📊 Okumalar
+                        </button>
+                        <button className="btn-action btn-edit" onClick={() => handleOpenEditModal(meter)}>
                           ✏️ Düzenle
                         </button>
-                        <button
-                          className="btn-action btn-delete"
-                          onClick={() => handleDelete(meter.id)}
-                        >
+                        <button className="btn-action btn-delete" onClick={() => handleDelete(meter.id)}>
                           🗑️ Sil
                         </button>
                       </div>
@@ -279,12 +374,15 @@ function App() {
         </div>
       )}
 
+      {/* ✏️ Sayaç Ekle / Düzenle Modalı */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
               <h2>{editingMeterId ? '✏️ Sayacı Düzenle' : '➕ Yeni Sayaç Kaydı'}</h2>
-              <button className="btn-close" onClick={() => setIsModalOpen(false)}>✖</button>
+              <button className="btn-close" onClick={() => setIsModalOpen(false)}>
+                ✖
+              </button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -324,8 +422,100 @@ function App() {
                 <button type="submit" className="btn btn-primary">
                   {editingMeterId ? 'Güncelle' : 'Kaydet'}
                 </button>
-                </div>
+              </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ Okumalar (Readings) Modalı */}
+      {isReadingModalOpen && selectedMeterForReadings && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>⚡ {selectedMeterForReadings.serialNumber} - Okuma Kayıtları</h2>
+              <button className="btn-close" onClick={() => setIsReadingModalOpen(false)}>
+                ✖
+              </button>
+            </div>
+
+            {/* Yeni Okuma Ekleme Formu */}
+            <form onSubmit={handleAddReading} style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #374151' }}>
+              <h3 style={{ fontSize: '1rem', marginBottom: '10px', color: '#9ca3af' }}>➕ Yeni Okuma Kaydı Ekle</h3>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1', minWidth: '140px' }}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Tüketim (kWh)"
+                    value={newReading.consumption}
+                    onChange={(e) => setNewReading({ ...newReading, consumption: e.target.value })}
+                    className="search-input"
+                    style={{ width: '100%', padding: '8px' }}
+                    required
+                  />
+                </div>
+                <div style={{ flex: '1', minWidth: '140px' }}>
+                  <input
+                    type="date"
+                    value={newReading.readingDate}
+                    onChange={(e) => setNewReading({ ...newReading, readingDate: e.target.value })}
+                    className="search-input"
+                    style={{ width: '100%', padding: '8px' }}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px' }}>
+                  Ekle
+                </button>
+              </div>
+            </form>
+
+            {/* Geçmiş Okumalar Listesi */}
+            <h3 style={{ fontSize: '1rem', marginBottom: '10px', color: '#9ca3af' }}>📋 Geçmiş Tüketimler</h3>
+            {readingsLoading ? (
+              <p style={{ textAlign: 'center', color: '#9ca3af' }}>Okumalar yükleniyor...</p>
+            ) : readings.length > 0 ? (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                <table className="meter-table" style={{ fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Tarih</th>
+                      <th>Tüketim (kWh)</th>
+                      <th style={{ textAlign: 'center' }}>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {readings.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.readingDate ? new Date(r.readingDate).toLocaleDateString('tr-TR') : '-'}</td>
+                        <td className="font-bold" style={{ color: '#10b981' }}>
+                          {r.consumption} kWh
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="btn-action btn-delete"
+                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                            onClick={() => handleDeleteReading(r.id)}
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p style={{ textAlign: 'center', color: '#6b7280', padding: '15px 0' }}>
+                Bu sayaca ait henüz kaydedilmiş bir okuma bulunmuyor.
+              </p>
+            )}
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsReadingModalOpen(false)}>
+                Kapat
+              </button>
+            </div>
           </div>
         </div>
       )}
