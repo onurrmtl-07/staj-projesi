@@ -4,6 +4,17 @@ Bu proje, staj sürecim kapsamında geliştirmekte olduğum bir Sayaç Yönetim 
 
 ---
 
+## 🌐 Canlı Demo & Bağlantılar
+
+* **Canlı Frontend (Arayüz):** [https://onurrmtl-07.github.io/staj-projesi](https://onurrmtl-07.github.io/staj-projesi)
+* **Canlı Backend (API):** [Render Backend Bağlantı Adresiniz]
+
+> **⚠️ Önemli Teknik Notlar:**
+> * **Cold Start (Uyku Modu):** Render ücretsiz planı kullanıldığı için servis ~15 dakika işlem yapılmadığında uyku moduna geçer. İlk istek atıldığında sunucunun uyanması **yaklaşık 1 dakika** sürebilir.
+> * **Veri Yönetimi (In-Memory):** Uygulama verileri geçici hafızada (In-Memory) tutulmaktadır. Servis yeniden başlatıldığında veriler sıfırlanır.
+
+---
+
 ## 🛠️ Kullanılan Teknolojiler
 
 * **Backend:** .NET 8 Web API (C#)
