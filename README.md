@@ -7,7 +7,7 @@ Bu proje, staj sürecim kapsamında geliştirmekte olduğum bir Sayaç Yönetim 
 ## 🌐 Canlı Demo & Bağlantılar
 
 * **Canlı Frontend (Arayüz):** [https://onurrmtl-07.github.io/staj-projesi](https://onurrmtl-07.github.io/staj-projesi)
-* **Canlı Backend (API):** [Render Backend Bağlantı Adresiniz]
+* **Canlı Backend (API):** [https://staj-projesi-backend.onrender.com](https://staj-projesi-backend.onrender.com)
 
 > **⚠️ Önemli Teknik Notlar:**
 > * **Cold Start (Uyku Modu):** Render ücretsiz planı kullanıldığı için servis ~15 dakika işlem yapılmadığında uyku moduna geçer. İlk istek atıldığında sunucunun uyanması **yaklaşık 1 dakika** sürebilir.
